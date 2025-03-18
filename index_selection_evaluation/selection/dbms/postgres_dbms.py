@@ -26,16 +26,17 @@ class PostgresDatabaseConnector(DatabaseConnector):
     def create_connection(self):
         if self._connection:
             self.close()
-        self._connection = psycopg2.connect("dbname={}".format(self.db_name),
-    user="postgres",
-    password="dmai4db2021.",
-    host="127.0.0.1",
-    port="5432"
-    # user="hrliu",
-    # password="041214637",
-    # host="10.26.42.166",
+    #     self._connection = psycopg2.connect("dbname={}".format(self.db_name),
+    # user="postgres",
+    # password="dmai4db2021.",
+    # host="127.0.0.1",
     # port="5432"
-        )
+    # # user="hrliu",
+    # # password="041214637",
+    # # host="10.26.42.166",
+    # # port="5432"
+    #     )
+        self._connection = psycopg2.connect("dbname={} host='/tmp/'".format(self.db_name))
         self._connection.autocommit = self.autocommit
         self._cursor = self._connection.cursor()
 
