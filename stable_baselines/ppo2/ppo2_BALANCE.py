@@ -397,7 +397,7 @@ class PPO2(ActorCriticRLModel):
         # self.ac_softmax_p = exp_logits / tf.reduce_sum(exp_logits, axis=-1, keepdims=True)
         # self.ac_softmax_p_m = tf.multiply(self.softmax_p, one_hot_actions)
         # self.ac_softmax_p_m = tf.reduce_sum(tf.multiply(self.softmax_p_m, one_hot_actions), axis=-1)
-        if self.ptf==1:
+        if self.ptf==-1:
             source_actor_prob = []
             source_actor = []
             source_workload_mask = []
@@ -649,7 +649,8 @@ class PPO2(ActorCriticRLModel):
             "seed": self.seed,
             "_vectorize_action": self._vectorize_action,
             "policy_kwargs": self.policy_kwargs,
-            "act_len": len(self.actor),
+            # "act_len": len(self.actor),
+            "act_len": 3,
             "pact_len": self.env.envs[0].observation_space.shape[0]
         }
 
@@ -704,10 +705,12 @@ class Runner(AbstractEnvRunner):
 
         for koko in range(self.n_steps):
             actions, values, self.states, neglogpacs = self.model.step(self.obs, self.states, self.dones, action_mask=self.action_masks)
+            # opa = np.array(
+            #         [1 if i == option or self.model.actor[i].step(self.obs, self.states, self.dones, action_mask=self.action_masks)[0][0] == actions[0] else 0 for i in range(len(self.model.actor))]
+            #     )
             opa = np.array(
-                    [1 if i == option or self.model.actor[i].step(self.obs, self.states, self.dones, action_mask=self.action_masks)[0][0] == actions[0] else 0 for i in range(len(self.model.actor))]
+                    [1 if i == option else 0 for i in range(3)]
                 )
-            
             mb_obs.append(self.obs.copy())
             mb_actions.append(actions)
             mb_values.append(values)

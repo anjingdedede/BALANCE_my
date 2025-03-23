@@ -365,32 +365,33 @@ class WorkloadGenerator(object):
         test_workloads = self._workloads_from_tuples(test_workload_tuples, unknown_query_probability)
         train_workloads = self._workloads_from_tuples(train_workload_tuples, unknown_query_probability)
 
-        import joblib
-
-        
-        pp = self.path2
-        with open(pp, 'rb') as f:
-            wl1 = joblib.load(f) #
-            f.close()
-
-
-        toto = wl1[-200:]
-        toto2 = wl1[-250:-200]
-        
-        res1=[]
-        res2=[]
-        res3=[]
-
-
-        while len(res1)<train_instances:
-            res1.extend(self.rnd.sample(toto, 50))
-
-        while len(res2)<validation_instances:
-            res2.extend(self.rnd.sample(toto2, 10))
-
-        while len(res3)<test_instances:
-            res3.extend(self.rnd.sample(toto2, 10))
-        return res1,res2,res3
+        # import joblib
+        #
+        #
+        # pp = self.path2
+        # with open(pp, 'rb') as f:
+        #     wl1 = joblib.load(f) #
+        #     f.close()
+        #
+        #
+        # toto = wl1[-200:]
+        # toto2 = wl1[-250:-200]
+        #
+        # res1=[]
+        # res2=[]
+        # res3=[]
+        #
+        #
+        # while len(res1)<train_instances:
+        #     res1.extend(self.rnd.sample(toto, 50))
+        #
+        # while len(res2)<validation_instances:
+        #     res2.extend(self.rnd.sample(toto2, 10))
+        #
+        # while len(res3)<test_instances:
+        #     res3.extend(self.rnd.sample(toto2, 10))
+        # return res1,res2,res3
+        return train_workloads, validation_workloads, test_workloads
 
 
     # The core idea is to create workloads that are similar and only change slightly from one to another.

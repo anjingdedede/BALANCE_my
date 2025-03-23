@@ -565,10 +565,23 @@ class Experiment(object):
         return episode_performances, mean_performance, perfs
 
     def make_env(self, env_id, environment_type=EnvironmentType.TRAINING, workloads_in=None):
+        """
+        创建一个用于训练、测试或验证的环境初始化函数。
+
+        参数:
+        env_id (int): 环境的唯一标识符。
+        environment_type (EnvironmentType, 可选): 环境的类型，默认为训练环境。
+        workloads_in (list, 可选): 传入的工作负载列表，默认为None。
+
+        返回:
+        function: 一个初始化环境的函数。
+        """
         def _init():
+            # 动态导入动作管理器类
             action_manager_class = getattr(
                 importlib.import_module("balance.action_manager"), self.config["action_manager"]
             )
+            # 初始化动作管理器
             action_manager = action_manager_class(
                 indexable_column_combinations=self.globally_indexable_columns,
                 action_storage_consumptions=self.action_storage_consumptions,
@@ -577,60 +590,89 @@ class Experiment(object):
                 reenable_indexes=self.config["reenable_indexes"],
             )
 
+            # 如果动作数量未设置，则进行设置
             if self.number_of_actions is None:
                 self.number_of_actions = action_manager.number_of_actions
 
+            # 配置观测管理器
             observation_manager_config = {
+                # 工作负载的查询类数量
                 "number_of_query_classes": self.workload_generator.number_of_query_classes,
+                # 工作负载嵌入器
                 "workload_embedder": self.workload_embedder if "workload_embedder" in self.config else None,
+                # 工作负载的大小
                 "workload_size": self.config["workload"]["size"],
             }
+            # 动态导入观测管理器类
             observation_manager_class = getattr(
                 importlib.import_module("balance.observation_manager"), self.config["observation_manager"]
             )
+            # 初始化观测管理器
             observation_manager = observation_manager_class(
                 action_manager.number_of_columns, observation_manager_config
             )
 
+            # 如果特征数量未设置，则进行设置
             if self.number_of_features is None:
                 self.number_of_features = observation_manager.number_of_features
 
+            # 动态导入奖励计算器类
             reward_calculator_class = getattr(
                 importlib.import_module("balance.reward_calculator"), self.config["reward_calculator"]
             )
+            # 初始化奖励计算器
             reward_calculator = reward_calculator_class()
 
+            # 根据环境类型选择工作负载
             if environment_type == EnvironmentType.TRAINING:
+                # 如果没有传入工作负载，则使用训练工作负载
                 workloads = self.workload_generator.wl_training if workloads_in is None else workloads_in
             elif environment_type == EnvironmentType.TESTING:
+                # 如果没有传入工作负载，则使用最后一个测试工作负载
                 workloads = self.workload_generator.wl_testing[-1] if workloads_in is None else workloads_in
             elif environment_type == EnvironmentType.VALIDATION:
+                # 如果没有传入工作负载，则使用最后一个验证工作负载
                 workloads = self.workload_generator.wl_validation[-1] if workloads_in is None else workloads_in
             else:
+                # 不支持的环境类型，抛出错误
                 raise ValueError
 
+            # 创建OpenAI Gym环境
             env = gym.make(
                 f"DB-v{self.config['gym_version']}",
                 environment_type=environment_type,
                 config={
+                    # 数据库名称
                     "database_name": self.schema.database_name,
+                    # 全局可索引的列组合
                     "globally_indexable_columns": self.globally_indexable_columns_flat,
+                    # 工作负载列表
                     "workloads": workloads,
+                    # 随机种子
                     "random_seed": self.config["random_seed"] + env_id,
+                    # 每个回合的最大步数
                     "max_steps_per_episode": self.config["max_steps_per_episode"],
+                    # 动作管理器
                     "action_manager": action_manager,
+                    # 观测管理器
                     "observation_manager": observation_manager,
+                    # 奖励计算器
                     "reward_calculator": reward_calculator,
+                    # 环境ID
                     "env_id": env_id,
+                    # 相似工作负载标志
                     "similar_workloads": self.config["workload"]["similar_workloads"],
+                    # 实验ID
                     "ids": self.config["id"],
                 },
             )
             return env
 
+        # 设置随机种子
         self.set_random_seed(self.config["random_seed"])
 
         return _init
+
 
  
 

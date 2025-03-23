@@ -2,23 +2,23 @@
   "id": "Test_Experiment_1",
   "description": "Just a TPCH Test Experiment",
   "gym_version": 1,
-  "timesteps": 20480,
-  "database": "indexselection_tpch___10",
+  "timesteps": 16000,
+  "database": "tpch_10_lhr",
   "random_seed": 6,
   "parallel_environments": 1,
   "pickle_cost_estimation_caches": false,
   "action_manager": "MultiColumnIndexActionManager",
   "observation_manager": "SingleColumnIndexPlanEmbeddingObservationManagerWithCost",
   "reward_calculator": "RelativeDifferenceRelativeToStorageReward",
-  "max_steps_per_episode": 768,
-  "validation_frequency": 7680,
+  "max_steps_per_episode": 200,
+  "validation_frequency": 1000,
   "filter_utilized_columns": false,
   "max_index_width": 3,
   "reenable_indexes": false,
   "result_path": "./experiment_results",
   "workload_embedder": {
     "type": "PlanEmbedderLSIBOW",
-    "representation_size": 10
+    "representation_size": 50
   },
   "rl_algorithm": {
     "algorithm": "PPO2",
@@ -43,21 +43,21 @@
     "scale_factor": 10,
     "size": 20,
     "varying_frequencies": true,
-    "training_instances": 2000,
+    "training_instances": 1000,
     "validation_testing": {
       "number_of_workloads": 1,
       "unknown_query_probabilities": [0.0]
     },
     "similar_workloads": false,
-    "excluded_query_classes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 17, 18, 19 ,20, 21, 22, 23, 24, 25],
+    "excluded_query_classes": [2,17,20],
     "unknown_queries": 0
   },
   "comparison_algorithms": ["extend"],
   "budgets": {
     "training": false,
-    "validation_and_testing": [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000]
+    "validation_and_testing": [500, 1000, 1500, 2500, 3500, 5000, 6500, 8000, 10000]
   },
   "column_filters": {
-    "TableNumRowsFilter": 0
+    "TableNumRowsFilter": 10000
   }
 }
