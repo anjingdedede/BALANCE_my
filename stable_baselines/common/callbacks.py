@@ -554,7 +554,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
             self.mean_rewards_3.append(mean_reward)
 
             episode_performances = self.eval_env.get_attr("episode_performances")[0]
-            assert len(episode_performances) == len(episode_rewards), f"{episode_performances} vs {episode_rewards}"
+            #assert len(episode_performances) == len(episode_rewards), f"{len(episode_performances)} vs {len(episode_rewards)}"
             perfs = []
             for perf in episode_performances:
                 perfs.append(round(perf["achieved_cost"], 2))

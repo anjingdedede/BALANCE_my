@@ -34,10 +34,43 @@ class ExtendAlgorithm(SelectionAlgorithm):
         self.workload = None
         self.min_cost_improvement = self.parameters["min_cost_improvement"]
 
+
+    def reset(self, parameters):
+        """
+        重置算法的参数和状态，将算法恢复到初始状态，以便重新开始索引选择过程。
+
+        :param parameters: 新的参数，包含了算法运行所需的各种配置信息，如存储预算、最大索引宽度等。
+        """
+        # 标记算法未运行，确保在重置后可以重新开始运行
+        self.did_run = False
+        # 更新参数为传入的新参数
+        self.parameters = parameters
+        # 存储缺失参数的默认值，确保所有必要的参数都有值
+        # 删除数据库中的所有索引，为新的索引选择过程做准备
+        self.database_connector.drop_indexes()
+        self.cost_evaluation.what_if.drop_all_simulated_indexes()
+        # 如果参数中包含成本估计方法
+        if "cost_estimation" in self.parameters:
+            # 获取成本估计方法
+            estimation = self.parameters["cost_estimation"]
+            # 设置成本评估的估计方法
+            self.cost_evaluation.cost_estimation = estimation
+        # 获取存储预算，单位为 MB
+        self.budget = (self.parameters["budget_MB"])
+        # 获取最大索引宽度，即一个索引最多可以包含的列数
+        self.max_index_width = self.parameters["max_index_width"]
+        # 重置工作负载为 None，确保后续可以重新加载工作负载
+        self.workload = None
+        # 获取最小成本改进值，用于判断新的索引组合是否值得选择
+        self.min_cost_improvement = self.parameters["min_cost_improvement"]
+        # 重置成本评估时间为 0，以便重新记录成本评估所花费的时间
+        self.cost_evaluation_time = 0
+
     def _calculate_best_indexes(self, workload):
         logging.info("Calculating best indexes Extend")
         self.workload = workload
         single_attribute_index_candidates = self.workload.potential_indexes()
+        self._total_index_size(single_attribute_index_candidates)
         extension_attribute_candidates = single_attribute_index_candidates.copy()
 
         # Current index combination
@@ -105,14 +138,14 @@ class ExtendAlgorithm(SelectionAlgorithm):
                     new_combination,
                     best,
                     current_cost,
-                    index_combination[position].estimated_size,
+                    self._total_index_size(index_combination),
                 )
 
     def _get_candidates_within_budget(self, index_combination_size, candidates):
         new_candidates = []
         for candidate in candidates:
             if (candidate.estimated_size is None) or (
-                candidate.estimated_size + index_combination_size <= self.budget
+                candidate.estimated_size + index_combination_size <= mb_to_b(self.budget)
             ):
                 new_candidates.append(candidate)
         return new_candidates
@@ -120,24 +153,65 @@ class ExtendAlgorithm(SelectionAlgorithm):
     def _evaluate_combination(
         self, index_combination, best, current_cost, old_index_size=0
     ):
+
+        # 计算当前索引组合下工作负载的成本
         cost = self.cost_evaluation.calculate_cost(
-            self.workload, index_combination, store_size=True
+            self.workload, index_combination, store_size=False
         )
+
+        # 如果新的成本乘以最小成本改进值大于等于当前成本，则不更新最佳索引组合
         if (cost * self.min_cost_improvement) >= current_cost:
             return
+        # 计算成本节省（收益）
         benefit = current_cost - cost
-        new_index = index_combination[-1]
-        new_index_size_difference = new_index.estimated_size - old_index_size
-        assert new_index_size_difference != 0, "Index size difference should not be 0!"
 
-        ratio = benefit / new_index_size_difference
+        # 计算新索引组合的总大小
+        new_index_size = self._total_index_size(index_combination)
 
+        # 计算新索引大小与旧索引大小的差值
+        new_index_size_difference = new_index_size - old_index_size
+        # 如果新索引大小有变化但差值为 0，使用当前最佳索引组合的收益与大小比
+        if new_index_size_difference == 0 and new_index_size != 0:
+            ratio = best["benefit_to_size_ratio"]
+        else:
+            # 确保新索引大小差值不为 0
+            assert new_index_size_difference != 0, "Index size difference should not be 0!"
+            # 计算收益与大小比
+            ratio = benefit / new_index_size_difference
+
+        # 计算新索引组合的总大小
         total_size = sum(index.estimated_size for index in index_combination)
 
-        if ratio > best["benefit_to_size_ratio"] and total_size <= self.budget:
+        # 如果新的收益与大小比大于等于当前最佳值，且总大小在预算范围内
+        if ratio >= best["benefit_to_size_ratio"] and total_size <= mb_to_b(self.budget):
+            # 记录日志，输出新的最佳成本和总大小
             logging.debug(
-                f"new best cost and size: {cost}\t" f"{b_to_mb(total_size):.2f}MB"
+                f"new best cost and size: {cost}\t" f"{(total_size):.2f}MB"
             )
+            # 更新最佳索引组合
             best["combination"] = index_combination
+            # 更新最佳收益与大小比
             best["benefit_to_size_ratio"] = ratio
+            # 更新最佳成本
             best["cost"] = cost
+
+
+    def _total_index_size(self, indexes):
+        """
+        计算给定索引列表的总大小。
+
+        :param indexes: 索引列表，其中每个元素是一个 Index 对象。
+        :return: 索引列表的总大小，单位为字节。
+        """
+        # 初始化总大小为 0
+        total_size = 0
+        # 遍历索引列表中的每个索引
+        for _ in indexes:
+            # 如果索引的估计大小为 None
+            if _.estimated_size is None:
+                # 调用数据库连接器的方法获取该索引的大小
+                self.cost_evaluation.estimate_size(_)
+            # 累加该索引的估计大小到总大小中
+            total_size += _.estimated_size
+        # 返回索引列表的总大小
+        return total_size

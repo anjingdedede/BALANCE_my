@@ -48,17 +48,17 @@ class WorkloadEmbedder(object):
         self.columns = columns
 
         if retrieve_plans:
-            for q_idx in range(1):
+            # for q_idx in range(1):
                 cost_evaluation = CostEvaluation(self.database_connector)
                 # [without indexes], [with indexes]
                 self.plans = ([], [])
                 for query_idx, query_texts_per_query_class in enumerate(query_texts):
-                    query_text = query_texts_per_query_class[q_idx]
-                    if isinstance(query_text,list):
-                        query_text = query_text[0]
-                    query = Query(query_idx, query_text)
-                    plan = self.database_connector.get_plan(query)
-                    self.plans[0].append(plan)
+                    for query_text in query_texts_per_query_class:
+                        if isinstance(query_text,list):
+                            query_text = query_text[0]
+                        query = Query(query_idx, query_text)
+                        plan = self.database_connector.get_plan(query)
+                        self.plans[0].append(plan)
 
                 for n, n_column_combinations in enumerate(self.columns):
                     logging.critical(f"Creating all indexes of width {n+1}.")
@@ -75,12 +75,13 @@ class WorkloadEmbedder(object):
                                 break
 
                         for query_idx, query_texts_per_query_class in enumerate(query_texts):
-                            query_text = query_texts_per_query_class[q_idx]
-                            if isinstance(query_text,list):
-                                query_text = query_text[0]
-                            query = Query(query_idx, query_text)
-                            plan = self.database_connector.get_plan(query)
-                            self.plans[1].append(plan)
+                            for query_text in  query_texts_per_query_class:
+                                # query_text = query_texts_per_query_class[q_idx]
+                                if isinstance(query_text,list):
+                                    query_text = query_text[0]
+                                query = Query(query_idx, query_text)
+                                plan = self.database_connector.get_plan(query)
+                                self.plans[1].append(plan)
 
                         for potential_index in potential_indexes:
                             cost_evaluation.what_if.drop_simulated_index(potential_index)
@@ -174,7 +175,6 @@ class PlanEmbedder(WorkloadEmbedder):
         self.relevant_operators_with_indexes = []
 
         self.boo_creator = BagOfOperators()
-
         for plan in self.plans[0]:
             boo = self.boo_creator.boo_from_plan(plan)
             self.relevant_operators.append(boo)
@@ -209,60 +209,100 @@ class PlanEmbedder(WorkloadEmbedder):
         
     
     def get_embeddings_boo(self, plans):
+        """
+        该方法用于获取计划的嵌入表示，并结合PCA处理的值向量。
+
+        参数:
+        plans (list): 计划列表
+
+        返回:
+        list: 包含嵌入向量的列表
+        """
         embeddings = []
         import numpy as np
         from sklearn.decomposition import PCA
+        # 用于存储值向量的临时列表
         temp = []
+        # 初始化PCA对象，指定主成分数量为10
         pca = PCA(n_components=10)
         ###
+        # 记录异常发生的次数
         self.err = 0
-        self.e =0
+        # 记录最近一次异常对象
+        self.e = 0
+        # 遍历每个计划
         for plan in plans:
+            # 生成计划的缓存键
             cache_key = str(plan)
+            # 检查缓存中是否存在该计划的嵌入向量
             if cache_key not in self.plan_embedding_cache:
+                # 从计划中提取操作符袋
                 boo = self.boo_creator.boo_from_plan(plan)
+                # 将操作符袋转换为词袋表示
                 bow = self.dictionary.doc2bow(boo)
 
+                # 初始化值向量，长度为字典的大小
                 value_vec = [0] * len(self.dictionary)
                 try:
+                    # 从计划中提取值
                     value = self.boo_creator.value_from_plan(plan)
+                    # 遍历每个值
                     for i, vv in enumerate(value):
+                        # 检查值是否不为None
                         if vv != None:
+                            # 将操作符转换为词袋表示
                             bow_i = self.dictionary.doc2bow([boo[i]])
+                            # 检查词袋表示是否为空
                             if len(bow_i)==0:
                                 break
+                            # 将值累加到值向量的相应位置
                             value_vec[bow_i[0][0]] += vv
                 except Exception as e:
+                    # 异常发生时，错误计数加1
                     self.err = self.err+1
+                    # 记录异常对象
                     self.e = e
-                
 
+                # 推断计划的嵌入向量
                 vector = self._infer(bow, boo)
 
-                
+                # 将值向量添加到临时列表中
                 temp.append(value_vec)
 
-
+                # 将计划的嵌入向量存入缓存
                 self.plan_embedding_cache[cache_key] = vector
+                # 将值向量存入缓存
                 self.value_embedding_cache[cache_key] = value_vec
             else:
+                # 从缓存中获取计划的嵌入向量
                 vector = self.plan_embedding_cache[cache_key]
+                # 从缓存中获取值向量
                 value_vec = self.value_embedding_cache[cache_key]
 
-
+                # 将值向量添加到临时列表中
                 temp.append(value_vec)
 
+            # 将计划的嵌入向量添加到结果列表中
             embeddings.append(vector)
+        # 使用临时列表中的值向量拟合PCA模型
         pca.fit(temp)
+        # 对临时列表中的值向量进行PCA转换
         val_pca = pca.transform(temp)
 
+        # 初始化索引
         ind = 0
+        # 存储最终结果的列表
         res = []
+        # 遍历每个嵌入向量
         for emb in embeddings:
+            # 将嵌入向量和PCA转换后的值向量相加
             emb = (emb+val_pca[ind].tolist())
+            # 索引加1
             ind = ind+1
+            # 将结果添加到最终结果列表中
             res.append(emb)
         return res
+
     
     def get_embeddings_noboo(self, plans):
         embeddings = []
@@ -366,32 +406,65 @@ class PlanEmbedderBOW(PlanEmbedder):
 
 
 class PlanEmbedderLSIBOW(PlanEmbedder):
+    """
+    PlanEmbedderLSIBOW类继承自PlanEmbedder，用于基于LSI（Latent Semantic Indexing）模型对查询计划进行嵌入表示。
+
+    参数:
+    query_texts (list): 查询文本列表
+    representation_size (int): 嵌入表示的维度
+    database_connector (object): 数据库连接器对象
+    columns (list): 列名列表
+    without_indexes (bool): 是否不考虑索引，默认为False
+    """
     def __init__(self, query_texts, representation_size, database_connector, columns, without_indexes=False):
+        # 调用父类的构造函数
         PlanEmbedder.__init__(self, query_texts, representation_size, database_connector, columns, without_indexes)
 
     def _create_model(self):
+        """
+        创建并保存LSI模型，然后加载该模型，并验证主题数量是否与表示大小匹配。
+        """
+        # 创建LSI模型
         self.lsi_bow = gensim.models.LsiModel(
             self.bow_corpus, id2word=self.dictionary, num_topics=self.representation_size
         )
+        # 保存LSI模型到文件
         self.lsi_bow.save('tpcds_lsi.model')
+        # 从文件中加载LSI模型
         self.lsi_bow = gensim.models.LsiModel.load('tpcds_lsi.model')
 
+        # 断言检查LSI模型的主题数量是否与表示大小一致
         assert (
             len(self.lsi_bow.get_topics()) == self.representation_size
         ), f"Topic-representation_size mismatch: {len(self.lsi_bow.get_topics())} vs {self.representation_size}"
 
     def _infer(self, bow, boo):
+        """
+        根据LSI模型推断查询计划的嵌入向量。
+
+        参数:
+        bow (list): 词袋表示
+        boo (list): 操作符袋表示
+
+        返回:
+        list: 嵌入向量
+        """
+        # 使用LSI模型对词袋表示进行转换
         result = self.lsi_bow[bow]
 
+        # 如果结果的长度等于表示大小，则直接提取值作为向量
         if len(result) == self.representation_size:
             vector = [x[1] for x in result]
         else:
+            # 否则，初始化一个全零向量，并将结果中的值填充到相应位置
             vector = [0] * self.representation_size
             for topic, value in result:
                 vector[topic] = value
+        # 断言检查向量的长度是否与表示大小一致
         assert len(vector) == self.representation_size
 
         return vector
+
 
 
 class PlanEmbedderLSIBOWWithoutIndexes(PlanEmbedderLSIBOW):

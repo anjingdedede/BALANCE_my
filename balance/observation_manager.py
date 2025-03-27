@@ -128,11 +128,11 @@ class EmbeddingObservationManager(ObservationManager):
 
         # 计算特征的总数
         self.number_of_features = (
-            self.number_of_actions  # 指示每个动作是否被执行
+            self.number_of_actions  # 指示每个动作是否被执行 40
             + (
-                self.representation_size * self.workload_size
+                self.representation_size * self.workload_size #50 * 20
             )  # 工作负载中每个查询的嵌入表示
-            + self.workload_size  # 工作负载中每个查询的频率
+            + self.workload_size  # 工作负载中每个查询的频率 20
             + 1  # 回合的预算
             + 1  # 当前的存储消耗
             + 1  # 初始工作负载成本
@@ -295,12 +295,12 @@ class SingleColumnIndexPlanEmbeddingObservationManagerWithCost(EmbeddingObservat
         print("use boo")
         # 重新计算特征数量，覆盖父类的特征数量
         self.number_of_features = (
-            self.number_of_actions  # 指示每个动作是否被执行
+            self.number_of_actions  # 指示每个动作是否被执行 40 40
             + (
-                self.representation_size * self.workload_size
+                self.representation_size * self.workload_size #50 * 20 50 * 14
             )  # 工作负载的嵌入表示
-            + self.workload_size  # 工作负载中每个查询的成本
-            + self.workload_size  # 工作负载中每个查询的频率
+            + self.workload_size  # 工作负载中每个查询的成本 # 20 14
+            + self.workload_size  # 工作负载中每个查询的频率 # 20 14
             + 1  # 回合的预算
             + 1  # 当前的存储消耗
             + 1  # 初始工作负载成本
@@ -388,21 +388,21 @@ class SingleColumnIndexPlanEmbeddingObservationManagerWithCost(EmbeddingObservat
         workload_embedding = np.array(self.workload_embedder.get_embeddings(environment_state["plans_per_query"]))
         
         # 获取动作状态
-        observation = np.array(environment_state["action_status"])
+        observation = np.array(environment_state["action_status"]) # 40 40
         # 将工作负载嵌入添加到观测值中
-        observation = np.append(observation, workload_embedding)
+        observation = np.append(observation, workload_embedding) # 19*50 14*50
         # 将每个查询的成本添加到观测值中
-        observation = np.append(observation, environment_state["costs_per_query"])
+        observation = np.append(observation, environment_state["costs_per_query"]) # 19 14
         # 将查询频率添加到观测值中
-        observation = np.append(observation, self.frequencies)
+        observation = np.append(observation, self.frequencies) # 19 14
         # 将回合预算添加到观测值中
-        observation = np.append(observation, self.episode_budget)
+        observation = np.append(observation, self.episode_budget) # 1
         # 将当前存储消耗添加到观测值中
-        observation = np.append(observation, environment_state["current_storage_consumption"])
+        observation = np.append(observation, environment_state["current_storage_consumption"]) # 1
         # 将初始工作负载成本添加到观测值中
-        observation = np.append(observation, self.initial_cost)
+        observation = np.append(observation, self.initial_cost) # 1
         # 将当前工作负载成本添加到观测值中
-        observation = np.append(observation, environment_state["current_cost"])
+        observation = np.append(observation, environment_state["current_cost"]) # 1
 
         return observation
 

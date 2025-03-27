@@ -100,6 +100,7 @@ class PPO2(ActorCriticRLModel):
         self.pla_sap = []
 
         n_of_10G = 3532
+        #n_of_1G = 3376
         n_of_1G = 3376
         self.pla_sa = [[0]*n_of_1G]*16
         for i in range(16):

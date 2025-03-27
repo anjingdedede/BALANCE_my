@@ -238,3 +238,8 @@ class PostgresDatabaseConnector(DatabaseConnector):
             WHERE datname = '{database_name}');"""
         result = self.exec_fetch(statement)
         return result[0]
+
+    def drop_simulated_indexes(self):
+        logging.info("Dropping simulated indexes")
+        statement = "SELECT hypopg_reset()"
+        self.exec_fetch(statement)

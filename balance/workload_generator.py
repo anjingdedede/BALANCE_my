@@ -1,6 +1,7 @@
 import copy
 import logging
 import random
+import re
 
 import numpy as np
 
@@ -53,11 +54,12 @@ class WorkloadGenerator(object):
         self.query_texts = self._retrieve_query_texts_random_value()
         self.query_classes = set(range(1, self.number_of_query_classes + 1))
         self.available_query_classes = self.query_classes - self.excluded_query_classes
+        self.available_query_texts = [self.query_texts[_ - 1] for _ in self.available_query_classes]
         
         self.globally_indexable_columns = self._select_indexable_columns(self.filter_utilized_columns)
 
         validation_instances = config["validation_testing"]["number_of_workloads"]
-        test_instances = config["validation_testing"]["number_of_workloads"]
+        test_instances = config["testing_instances"]
         self.wl_validation = []
         self.wl_testing = []
 
@@ -280,7 +282,7 @@ class WorkloadGenerator(object):
             query = query.replace("limit 20", "")
             query = query.replace("limit 10", "")
             query = query.strip()
-
+            # query = re.sub(r'\blineitem\b', 'lineitem_bak', query)
             if "create view revenue0" in query:
                 query = query.replace("revenue0", f"revenue0_{self.experiment_id}")
 
@@ -305,6 +307,43 @@ class WorkloadGenerator(object):
             for column in self.workload_columns:
                 if column.name in query_text_after_where and f"{column.table.name} " in query_text_before_where:
                     query.columns.append(column)
+
+    def _all_available_workloads(self, query_classes, unknown_query_probability=None):
+        """
+        生成所有可用的工作负载。
+
+        :param query_classes: 查询类列表。
+        :param unknown_query_probability: 未知查询的概率，默认为 None。
+        :return: 包含所有工作负载的列表。
+        """
+        workloads = []
+        # 处理未知查询概率为 None 的情况
+        unknown_query_probability = "" if unknown_query_probability is None else unknown_query_probability
+        queries = []
+        for query_class in query_classes:
+            # 获取当前查询类的查询模型
+            query_models = self.query_texts[query_class - 1]
+            for query_text in query_models:
+                if isinstance(query_text, list):
+                    query_text = query_text[0]
+                # 创建查询对象
+                query = Query(query_class, query_text, frequency=1)
+                # 存储查询中可索引的列
+                self._store_indexable_columns(query)
+                # 确保查询的列列表不为空
+                assert len(query.columns) > 0 , f"Query columns should have length > 0: {query.text}"
+                queries.append(query)
+        # 确保查询列表是列表类型
+        assert isinstance(queries, list), f"Queries is not of type list but of {type(queries)}"
+        # 计算未知查询的数量
+        previously_unseen_queries = (
+            round(unknown_query_probability * len(queries)) if unknown_query_probability != "" else 0
+        )
+        # 创建工作负载对象
+        workloads.append(
+            Workload(queries, description=f"Contains {previously_unseen_queries} previously unseen queries.")
+        )
+        return workloads
 
     def _workloads_from_tuples(self, tuples, unknown_query_probability=None):
         workloads = []
@@ -464,13 +503,19 @@ class WorkloadGenerator(object):
             workload_query_classes = tuple(query_classes)
             assert len(workload_query_classes) == size
         else:
-            if len(self.available_query_classes)<size:
-                size = len(self.available_query_classes)
-            if self.gen_one>0+9:
-                workload_query_classes = self.rnd.choice(self.temp_genone)
-            else:
-                workload_query_classes = tuple(self.rnd.sample(self.available_query_classes, size))
-                self.temp_genone.append(workload_query_classes)
+            # if len(self.available_query_classes)<size:
+            #     size = len(self.available_query_classes) # todo 如果size变小，就会报错，需要修改
+            # if self.gen_one>0+9:
+            #     workload_query_classes = self.rnd.choice(self.temp_genone)
+            # else:
+            #     workload_query_classes = tuple(self.rnd.sample(self.available_query_classes, size))
+            #     self.temp_genone.append(workload_query_classes)
+
+            workload_query_classes = []
+            for _ in range(size):
+                workload_query_classes.extend(self.rnd.sample(self.available_query_classes, 1))
+            workload_query_classes = tuple(workload_query_classes)
+            self.temp_genone.append(workload_query_classes)
             self.gen_one = self.gen_one +1 
 
         # Create frequencies
@@ -484,52 +529,92 @@ class WorkloadGenerator(object):
         return workload_tuple
 
     def _only_utilized_indexes(self, indexable_columns):
+        """
+        过滤出可索引列中实际被使用的索引列。
+
+        :param indexable_columns: 可索引列的列表
+        :return: 实际被使用的索引列的集合
+        """
+        # 为每个可用查询类设置频率为1
         frequencies = [1 for frequency in range(len(self.available_query_classes))]
+        # 创建一个包含可用查询类和对应频率的元组
         workload_tuple = (self.available_query_classes, frequencies)
+        # 从元组生成一个工作负载对象
         workload = self._workloads_from_tuples([workload_tuple])[0]
 
+        # 为每个查询生成候选索引
         candidates = candidates_per_query(
             workload,
-            max_index_width=1,
-            candidate_generator=syntactically_relevant_indexes,
+            max_index_width=1,  # 最大索引宽度为1
+            candidate_generator=syntactically_relevant_indexes,  # 使用语法相关的索引生成器
         )
 
+        # 连接到PostgreSQL数据库
         connector = PostgresDatabaseConnector(self.database_name, autocommit=True)
+        # 删除数据库中的所有索引
         connector.drop_indexes()
+        # 创建一个成本评估对象
         cost_evaluation = CostEvaluation(connector)
 
+        # 获取实际被使用的索引和查询详细信息
         utilized_indexes, query_details = get_utilized_indexes(workload, candidates, cost_evaluation, True)
 
+        # 存储实际被使用的索引的列
         columns_of_utilized_indexes = set()
         for utilized_index in utilized_indexes:
+            # 提取索引的第一列
             column = utilized_index.columns[0]
             columns_of_utilized_indexes.add(column)
 
+        # 找出可索引列中实际被使用的列
         output_columns = columns_of_utilized_indexes & set(indexable_columns)
+        # 找出可索引列中未被使用的列
         excluded_columns = set(indexable_columns) - output_columns
+        # 记录未被使用的列
         logging.critical(f"Excluding columns based on utilization:\n   {excluded_columns}")
 
         return output_columns
 
-    def _select_indexable_columns(self, only_utilized_indexes=False):
-        available_query_classes = tuple(self.available_query_classes)
-        query_class_frequencies = tuple([1 for frequency in range(len(available_query_classes))])
 
+    def _select_indexable_columns(self, only_utilized_indexes=False):
+        """
+        选择可索引的列。
+
+        :param only_utilized_indexes: 是否仅选择实际被使用的索引列，默认为False
+        :return: 可索引列的列表
+        """
+        # 将可用查询类转换为元组
+        available_query_classes = tuple(self.available_query_classes)
+        # 为每个可用查询类设置频率为1，并转换为元组
+        #query_class_frequencies = tuple([1 for frequency in range(len(available_query_classes))])
+
+        # 记录日志，显示正在对多少个查询类进行可索引列的选择
         logging.info(f"Selecting indexable columns on {len(available_query_classes)} query classes.")
 
-        workload = self._workloads_from_tuples([(available_query_classes, query_class_frequencies)])[0]
+        # 从查询类和频率元组生成工作负载
+        workload = self._all_available_workloads(available_query_classes)[0]
 
+        # 获取工作负载的可索引列
         indexable_columns = workload.indexable_columns()
+        # 如果only_utilized_indexes为True，则过滤出实际被使用的索引列
         if only_utilized_indexes:
             indexable_columns = self._only_utilized_indexes(indexable_columns)
+        # 用于存储最终选择的可索引列
         selected_columns = []
 
+        # 全局列ID，用于为每个选中的列分配唯一ID
         global_column_id = 0
+        # 遍历所有工作负载列
         for column in self.workload_columns:
+            # 如果列在可索引列中
             if column in indexable_columns:
+                # 为该列分配全局列ID
                 column.global_column_id = global_column_id
+                # 全局列ID加1
                 global_column_id += 1
 
+                # 将该列添加到选中列列表中
                 selected_columns.append(column)
 
         return selected_columns
+

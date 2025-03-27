@@ -44,7 +44,6 @@
     "size": 20,
     "varying_frequencies": true,
     "training_instances": 2000,
-    "testing_instances": 1,
     "validation_testing": {
       "number_of_workloads": 1,
       "unknown_query_probabilities": [0.0]

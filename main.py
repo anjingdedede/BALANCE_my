@@ -48,9 +48,24 @@ if __name__ == "__main__":
 
     # 准备实验
     experiment.prepare()
+    experiment.compare()
     # 将实验对象保存到pickle文件中
     with open(f"{experiment.experiment_folder_path}/experiment_object.pickle", "wb") as handle:
         pickle.dump(experiment, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # # 从stable_baselines.common中导入回调函数和向量环境类
+    # from stable_baselines.common.callbacks import EvalCallbackWithTBRunningAverage
+    # from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
+    # # 从stable_baselines.ppo2中导入PPO2算法相关类
+    # from stable_baselines.ppo2 import ppo2, ppo2_BALANCE
+    #
+    # # 设置算法类为PPO2_BALANCE的PPO2类
+    # algorithm_class = ppo2_BALANCE.PPO2
+    # source_algorithm_class = ppo2_BALANCE.PPO2
+    #
+    # with open(f"experiment_results/tpch/experiment_object.pickle", "rb") as handle:
+    #     experiment = pickle.load(handle)
+
     # 根据并行环境数量选择并行环境类
     ParallelEnv = SubprocVecEnv if experiment.config["parallel_environments"] > 1 else DummyVecEnv
 
@@ -211,7 +226,7 @@ if __name__ == "__main__":
     model.learn(
         # 设置总时间步数
         total_timesteps=experiment.config["timesteps"],
-        # 设置回调函数列表
+        # # 设置回调函数列表
         callback=callbacks,
         # 设置TensorBoard日志名称
         tb_log_name=experiment.id,

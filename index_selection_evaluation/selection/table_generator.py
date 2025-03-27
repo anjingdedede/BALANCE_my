@@ -54,6 +54,7 @@ class TableGenerator:
         for create_table in create_tables:
             splitted = create_table.split("(", 1)
             table = Table(splitted[0].strip())
+            # table = Table(splitted[0].strip() + "_bak")
             self.tables.append(table)
             # TODO regex split? ,[whitespace]\n
             for column in splitted[1].split(",\n"):

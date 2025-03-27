@@ -202,7 +202,7 @@ class DBEnvV1(gym.Env):
             self._report_episode_performance(environment_state)
             # 更新当前工作负载的索引
             self.current_workload_idx += 1
-            # print(f"Indexes: {len(self.current_indexes)}")
+            print(f"Indexes: {len(self.current_indexes)}")
         else:
             # 这里 ace = 1 可能是临时调试代码，可以考虑移除
             ace = 1
@@ -372,7 +372,6 @@ class DBEnvV1(gym.Env):
             "costs_per_query": costs_per_query,
             "workload":self.current_workload,
         }
-
         return environment_state
 
 

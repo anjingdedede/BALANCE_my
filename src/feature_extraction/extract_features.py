@@ -67,11 +67,24 @@ class PlanInSeq(object):
         self.cardinality = cardinality
 
 def get_alias2table(root, alias2table):
+    """
+    递归遍历计划树，将表别名映射到实际表名，并存储在 alias2table 字典中。
+
+    参数:
+    root (dict): 计划树的根节点，通常是一个包含计划信息的字典。
+    alias2table (dict): 用于存储表别名到实际表名映射的字典。
+    """
+    # 检查当前节点是否包含 'Relation Name' 和 'Alias' 字段
     if 'Relation Name' in root and 'Alias' in root:
+        # 如果包含，则将别名映射到实际表名
         alias2table[root['Alias']] = root['Relation Name']
+    # 检查当前节点是否包含子计划
     if 'Plans' in root:
+        # 遍历所有子计划
         for child in root['Plans']:
+            # 递归调用自身处理子计划
             get_alias2table(child, alias2table)
+
 
 
 

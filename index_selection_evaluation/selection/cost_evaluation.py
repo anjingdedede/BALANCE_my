@@ -11,6 +11,7 @@ class CostEvaluation:
         self.cost_estimation = cost_estimation
         logging.info("Cost estimation with " + self.cost_estimation)
         self.what_if = WhatIfIndexCreation(db_connector)
+        self.what_if.drop_all_simulated_indexes()
         self.current_indexes = set()
 
         assert len(self.what_if.all_simulated_indexes()) == len(self.current_indexes)
@@ -32,6 +33,20 @@ class CostEvaluation:
         self.relevant_indexes_cache = {}
 
         self.costing_time = datetime.timedelta(0)
+
+    def reset(self):
+        """
+        重置 CostEvaluation 实例的状态。
+
+        该方法用于清除当前索引集合，并删除数据库中所有的索引。
+        通常在需要重新开始成本评估或者重新初始化索引状态时调用。
+        """
+        # 清空当前索引集合，将其重置为空集合
+        self.current_indexes = set()
+        # 调用数据库连接器的 drop_indexes 方法，删除数据库中所有的索引
+        self.db_connector.drop_indexes()
+        self.db_connector.drop_simulated_indexes()
+
 
     def estimate_size(self, index):
         # TODO: Refactor: It is currently too complicated to compute
@@ -147,7 +162,7 @@ class CostEvaluation:
         return query_plan["Total Cost"], query_plan
 
     def complete_cost_estimation(self):
-        self.completed = True
+        #self.completed = True
 
         for index in self.current_indexes.copy():
             self._unsimulate_or_drop_index(index)
