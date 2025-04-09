@@ -243,3 +243,8 @@ class PostgresDatabaseConnector(DatabaseConnector):
         logging.info("Dropping simulated indexes")
         statement = "SELECT hypopg_reset()"
         self.exec_fetch(statement)
+
+    def get_all_simulated_indexes(self):
+        statement = "SELECT * FROM hypopg_list_indexes;"
+        result = self.exec_fetch(statement, one=False)
+        print(result)

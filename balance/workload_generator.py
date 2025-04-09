@@ -28,6 +28,7 @@ class WorkloadGenerator(object):
             "TPCH",
             "TPCDS",
             "JOB",
+            "TPCHskew"
         ], f"Benchmark '{config['benchmark']}' is currently not supported."
 
         # For create view statement differentiation
@@ -253,6 +254,8 @@ class WorkloadGenerator(object):
             return 99
         elif self.benchmark == "JOB":
             return 113
+        elif self.benchmark == "TPCHskew":
+            return 25
         else:
             raise ValueError("Unsupported Benchmark type provided, only TPCH, TPCDS, and JOB supported.")
 

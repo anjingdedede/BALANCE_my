@@ -49,6 +49,9 @@ class WhatIfIndexCreation:
 
     def drop_all_simulated_indexes(self):
         self.db_connector.drop_simulated_indexes()
-        # for key in self.simulated_indexes:
-        #     self.db_connector.drop_simulated_index(key)
+        for key in self.simulated_indexes:
+            self.db_connector.drop_simulated_index(key)
         self.simulated_indexes = {}
+
+    def get_all_simulated_indexes(self):
+        self.db_connector.get_all_simulated_indexes()

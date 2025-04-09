@@ -80,7 +80,7 @@ class ExtendAlgorithm(SelectionAlgorithm):
         best = {"combination": [], "benefit_to_size_ratio": 0, "cost": None}
 
         current_cost = self.cost_evaluation.calculate_cost(
-            self.workload, index_combination, store_size=True
+            self.workload, index_combination, store_size=False
         )
         self.initial_cost = current_cost
         # Breaking when no cost improvement
@@ -139,6 +139,7 @@ class ExtendAlgorithm(SelectionAlgorithm):
                     best,
                     current_cost,
                     self._total_index_size(index_combination),
+                    #index_combination[position].estimated_size,
                 )
 
     def _get_candidates_within_budget(self, index_combination_size, candidates):

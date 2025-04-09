@@ -6,7 +6,7 @@ from index_selection_evaluation.selection.table_generator import TableGenerator
 
 
 class Schema(object):
-    def __init__(self, benchmark_name, scale_factor, dbnames,filters={}):
+    def __init__(self, benchmark_name, scale_factor, dbnames, filters={}):
         generating_connector = PostgresDatabaseConnector(None, autocommit=True)
         table_generator = TableGenerator(
             benchmark_name=benchmark_name.lower(), scale_factor=scale_factor, database_connector=generating_connector,dbname=dbnames
@@ -15,7 +15,6 @@ class Schema(object):
         self.database_name = table_generator.database_name()
         self.tables = table_generator.tables
         self.types = table_generator.types
-
         self.columns = []
         for table in self.tables:
             for column in table.columns:
@@ -33,11 +32,13 @@ class TableNumRowsFilter(object):
         self.connector = PostgresDatabaseConnector(database_name, autocommit=True)
         self.connector.create_statistics()
 
+
     def apply_filter(self, columns):
         output_columns = []
 
         for column in columns:
             table_name = column.table.name
+
             table_num_rows = self.connector.exec_fetch(
                 f"SELECT reltuples::bigint AS estimate FROM pg_class where relname='{table_name}';"
             )[0]

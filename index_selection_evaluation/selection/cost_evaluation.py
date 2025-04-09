@@ -95,7 +95,7 @@ class CostEvaluation:
         ), "Cost Evaluation is completed and cannot be reused."
         self._prepare_cost_calculation(indexes, store_size=store_size)
         total_cost = 0
-
+        #self.what_if.get_all_simulated_indexes()
         # TODO: Make query cost higher for queries which are running often
         for query in workload.queries:
             self.cost_requests += 1
@@ -133,7 +133,7 @@ class CostEvaluation:
             self._simulate_or_create_index(index, store_size=store_size)
         for index in self.current_indexes - set(indexes):
             self._unsimulate_or_drop_index(index)
-
+        #self.what_if.get_all_simulated_indexes()
         assert self.current_indexes == set(indexes)
 
     def _simulate_or_create_index(self, index, store_size=False):
@@ -183,6 +183,7 @@ class CostEvaluation:
             return self.cache[(query, relevant_indexes)]
         # If no cache hit request cost from database system
         else:
+            #self.what_if.get_all_simulated_indexes()
             cost = self._get_cost(query)
             self.cache[(query, relevant_indexes)] = cost
             return cost

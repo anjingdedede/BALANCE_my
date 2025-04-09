@@ -3,6 +3,8 @@ import importlib
 import logging
 import pickle
 import sys
+import time
+
 import gym_db  # noqa: F401
 from gym_db.common import EnvironmentType
 from balance.experiment import Experiment
@@ -218,7 +220,7 @@ if __name__ == "__main__":
         )
         # 将多验证回调函数添加到回调列表中
         callbacks.append(multi_validation_callback)
-
+    start_time = time.time()
     # 开始实验学习
     experiment.start_learning()
 
@@ -233,6 +235,9 @@ if __name__ == "__main__":
         # 设置实验ID
         ids=experiment.config["id"]
     )
+
+    end_time = time.time()
+    print(f"训练时间 ： {end_time - start_time}")
     # 结束实验学习
     experiment.finish_learning(
         # 传入训练环境

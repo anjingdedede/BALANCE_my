@@ -74,8 +74,10 @@ class Experiment(object):
             self.config["workload"]["scale_factor"],
             # 数据库名称
             self.config["database"],
+            # self.config["used_tables"]["names"],
             # 列过滤器配置
-            self.config["column_filters"]
+            self.config["column_filters"],
+
         )
 
         # 初始化工作负载生成器，用于生成实验所需的工作负载

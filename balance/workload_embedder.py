@@ -432,6 +432,7 @@ class PlanEmbedderLSIBOW(PlanEmbedder):
         self.lsi_bow.save('tpcds_lsi.model')
         # 从文件中加载LSI模型
         self.lsi_bow = gensim.models.LsiModel.load('tpcds_lsi.model')
+        print(f"len(self.lsi_bow.get_topics()) :  {len(self.lsi_bow.get_topics())}")
 
         # 断言检查LSI模型的主题数量是否与表示大小一致
         assert (
